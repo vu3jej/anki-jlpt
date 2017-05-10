@@ -1,8 +1,12 @@
 import re
 import json
 import datetime
+from collections import OrderedDict
+# third party
 import luigi
 import tweepy
+import genanki
+import pystache
 
 
 class GetTweets(luigi.Task):
@@ -122,6 +126,77 @@ class ProcessTweets(luigi.Task):
             for item in item_bank:
                 outfile.write(json.dumps(item, ensure_ascii=False))
                 outfile.write('\n')
+
+
+class SaveAsAnkiDeck(luigi.Task):
+    task_namespace = 'twitter'
+    date = luigi.DateParameter(default=datetime.date.today())
+
+    jlpt_deck = genanki.Deck(deck_id=1498953600, name='jlpt')
+    jlpt_model = genanki.Model(
+        model_id=112,
+        name='Japanese',
+        css='{.answer {text-align: center;}}',
+        fields=[
+            {'name': 'stem'},
+            {'name': 'options'},
+            {'name': 'key'}
+        ],
+        templates=[
+            {
+                'name': 'with_options',
+                'qfmt': '{{stem}}<br>{{options}}',
+                'afmt': '{{FrontSide}}'
+                        '<hr id="answer">'
+                        '<p><span class="answer">{{key}}</span></p>'
+            },
+            {
+                'name': 'without_options',
+                'qfmt': '{{stem}}',
+                'afmt': '{{FrontSide}}'
+                        '<hr id="answer">'
+                        '<p><span class="answer">{{key}}</span></p>'
+            }
+        ]
+    )
+
+    def requires(self):
+        return ProcessTweets()
+
+    def output(self):
+        return luigi.LocalTarget(
+            path='/tmp/_anki_deck-%s.apkg' % self.date
+        )
+
+    def run(self):
+        with self.input().open('r') as fobj:
+            for row in fobj.readlines():
+                item = json.loads(s=row)
+                options = item.get('options')
+                if options:
+                    template = '{{#options}}{{k}}. {{v}}<br>{{/options}}'
+                    options = OrderedDict(sorted(options.items()))
+                    listcomp = [{'k': k, 'v': v} for k, v in options.items()]
+                    options_rendered = pystache.render(
+                        template=template,
+                        context={'options': listcomp}
+                    )
+                    note = genanki.Note(
+                        model=self.jlpt_model,
+                        fields=[item.get('stem'), options_rendered,
+                                item.get('key')]
+                    )
+                    pass
+                else:
+                    note = genanki.Note(
+                        model=self.jlpt_model,
+                        fields=[item.get('stem'), '', item.get('key')]
+                    )
+                self.jlpt_deck.add_note(note=note)
+
+        genanki.Package(deck_or_decks=self.jlpt_deck).write_to_file(
+            file=self.output().path
+        )
 
 
 if __name__ == '__main__':
