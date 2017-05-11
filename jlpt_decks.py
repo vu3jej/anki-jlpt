@@ -2,11 +2,22 @@ import re
 import json
 import datetime
 from collections import OrderedDict
+from os.path import abspath, dirname, join
 # third party
 import luigi
 import tweepy
 import genanki
 import pystache
+from configobj import ConfigObj
+
+config = ConfigObj(infile=join(dirname(abspath(__file__)), 'config.ini'))
+twitter = config['twitter']
+
+API_KEY = twitter['consumer_key']
+API_SECRET = twitter['consumer_secret']
+ACCESS_TOKEN = twitter['access_token']
+ACCESS_TOKEN_SECRET = twitter['access_token_secret']
+SCREEN_NAME = twitter['screen_name']
 
 
 class GetTweets(luigi.Task):
@@ -17,28 +28,20 @@ class GetTweets(luigi.Task):
     task_namespace = 'twitter'
     date = luigi.DateParameter(default=datetime.date.today())
 
-    # Generate an OAuth access token @ https://apps.twitter.com/
-    API_KEY = 'consumer_key'
-    API_SECRET = 'consumer_secret'
-    ACCESS_TOKEN = 'access_token'
-    ACCESS_TOKEN_SECRET = 'access_token_secret'
-
     auth = tweepy.OAuthHandler(consumer_key=API_KEY,
                                consumer_secret=API_SECRET)
-    auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+    auth.set_access_token(key=ACCESS_TOKEN, secret=ACCESS_TOKEN_SECRET)
     api = tweepy.API(auth)
-    # Specifies the id or screen name of the user.
-    screen_name = 'screen_name'
 
     def output(self):
         return luigi.LocalTarget(
-            path='/tmp/_%s-%s.ldj' % (self.screen_name, self.date)
+            path='/tmp/_%s-%s.ldj' % (SCREEN_NAME, self.date)
         )
 
     def run(self):
         with self.output().open('w') as outfile:
             for status in tweepy.Cursor(self.api.user_timeline,
-                                        id=self.screen_name).items():
+                                        id=SCREEN_NAME).items():
                 outfile.write(
                     json.dumps(
                         {
