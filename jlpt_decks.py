@@ -80,20 +80,26 @@ class ProcessTweets(luigi.Task):
             flags=re.IGNORECASE
         )
         ques = question.strip()
+
         # Check if options are available for the question
         index = ques.rfind('A')
         if index == -1:
             stem = re.sub(pattern=r'\s+', repl=' ', string=ques.strip())
-            item.update({'stem': stem})
-            return item
+            return {'stem': stem}
+
         # Clean up options as key: value pairs
-        stem = re.sub(pattern=r'\s+', repl=' ', string=ques[:index].strip())
-        item.update({'stem': stem})
         options = ques[index:].strip()
         options = dict(pattern.findall(string=options))
-        item.update(
-            {'options': {k.strip(): v.strip() for k, v in options.items()}}
-        )
+        if len(options) < 4:
+            stem = re.sub(pattern=r'\s+', repl=' ', string=ques.strip())
+            item.update({'stem': stem})
+        else:
+            stem = re.sub(pattern=r'\s+', repl=' ',
+                          string=ques[:index].strip())
+            item.update({
+                'stem': stem,
+                'options': {k.strip(): v.strip() for k, v in options.items()}
+            })
         return item
 
     def run(self):
