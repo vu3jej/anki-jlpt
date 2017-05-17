@@ -213,4 +213,4 @@ class SaveAsAnkiDeck(luigi.Task):
 
 
 if __name__ == '__main__':
-    luigi.run(['twitter.GetTweets', '--workers', '1', '--local-scheduler'])
+    luigi.run(['twitter.SaveAsAnkiDeck', '--workers', '1', '--local-scheduler'])
