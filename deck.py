@@ -34,7 +34,7 @@ class GetTweets(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path=join(dirname(abspath(__file__)),
+            path=join(dirname(abspath(__file__)), 'data',
                       '_{screen_name}_raw-{date}.ldj'.format(
                           screen_name=SCREEN_NAME, date=self.date))
         )
@@ -69,7 +69,7 @@ class ProcessTweets(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path=join(dirname(abspath(__file__)),
+            path=join(dirname(abspath(__file__)), 'data',
                       '_{screen_name}_processed-{date}.ldj'.format(
                           screen_name=SCREEN_NAME, date=self.date))
         )
@@ -176,7 +176,7 @@ class SaveAsAnkiDeck(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path=join(dirname(abspath(__file__)),
+            path=join(dirname(abspath(__file__)), 'data',
                       '_{screen_name}-{date}.apkg'.format(
                           screen_name=SCREEN_NAME, date=self.date))
         )
