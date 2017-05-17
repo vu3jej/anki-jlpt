@@ -1,6 +1,8 @@
 import re
 import json
 import datetime
+from itertools import groupby
+from operator import itemgetter
 from collections import OrderedDict
 from os.path import abspath, dirname, join
 # third party
@@ -139,6 +141,43 @@ class ProcessTweets(luigi.Task):
                 outfile.write('\n')
 
 
+class Deduplicate(luigi.Task):
+    date = luigi.DateParameter(default=datetime.date.today())
+
+    def requires(self):
+        return ProcessTweets()
+
+    def output(self):
+        return luigi.LocalTarget(
+            path=join(dirname(abspath(__file__)), 'data',
+                      '_{screen_name}_deduplicated-{date}.ldj'.format(
+                          screen_name=SCREEN_NAME, date=self.date))
+        )
+
+    @staticmethod
+    def dedupe(item_bank):
+        get_values = itemgetter('stem', 'key')
+        item_bank.sort(key=get_values)
+        deduped = list()
+        for k, g in groupby(item_bank, get_values):
+            deduped.append(next(g))
+        return deduped
+
+    def run(self):
+        item_bank = list()
+        with self.input().open('r') as fobj:
+            for row in fobj.readlines():
+                item = json.loads(s=row)
+                item_bank.append(item)
+
+        deduplicated = self.dedupe(item_bank=item_bank)
+
+        with self.output().open('w') as outfile:
+            for item in deduplicated:
+                outfile.write(json.dumps(item, ensure_ascii=False))
+                outfile.write('\n')
+
+
 class SaveAsAnkiDeck(luigi.Task):
     task_namespace = 'twitter'
     date = luigi.DateParameter(default=datetime.date.today())
@@ -172,7 +211,7 @@ class SaveAsAnkiDeck(luigi.Task):
     )
 
     def requires(self):
-        return ProcessTweets()
+        return Deduplicate()
 
     def output(self):
         return luigi.LocalTarget(
