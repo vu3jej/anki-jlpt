@@ -25,7 +25,6 @@ class GetTweets(luigi.Task):
     Generates a local file containing chosen fields of Twitter
     API response in JSON format
     """
-    task_namespace = 'twitter'
     date = luigi.DateParameter(default=datetime.date.today())
 
     auth = tweepy.OAuthHandler(consumer_key=API_KEY,
@@ -35,7 +34,9 @@ class GetTweets(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path='/tmp/_%s-%s.ldj' % (SCREEN_NAME, self.date)
+            path=join(dirname(abspath(__file__)),
+                      '_{screen_name}_raw-{date}.ldj'.format(
+                          screen_name=SCREEN_NAME, date=self.date))
         )
 
     def run(self):
@@ -61,7 +62,6 @@ class ProcessTweets(luigi.Task):
     Generates a local file to be written to a database for persistent
     storage after cleaning up the tweets
     """
-    task_namespace = 'twitter'
     date = luigi.DateParameter(default=datetime.date.today())
 
     def requires(self):
@@ -69,7 +69,9 @@ class ProcessTweets(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path='/tmp/_processed_tweets-%s.ldj' % self.date
+            path=join(dirname(abspath(__file__)),
+                      '_{screen_name}_processed-{date}.ldj'.format(
+                          screen_name=SCREEN_NAME, date=self.date))
         )
 
     @staticmethod
@@ -174,7 +176,9 @@ class SaveAsAnkiDeck(luigi.Task):
 
     def output(self):
         return luigi.LocalTarget(
-            path='/tmp/_anki_deck-%s.apkg' % self.date
+            path=join(dirname(abspath(__file__)),
+                      '_{screen_name}-{date}.apkg'.format(
+                          screen_name=SCREEN_NAME, date=self.date))
         )
 
     def run(self):
