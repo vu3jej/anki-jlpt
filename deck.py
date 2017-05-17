@@ -199,7 +199,6 @@ class SaveAsAnkiDeck(luigi.Task):
                         fields=[item.get('stem'), options_rendered,
                                 item.get('key')]
                     )
-                    pass
                 else:
                     note = genanki.Note(
                         model=self.jlpt_model,
