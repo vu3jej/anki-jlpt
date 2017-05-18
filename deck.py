@@ -6,7 +6,6 @@ from itertools import groupby
 from operator import itemgetter
 from collections import OrderedDict
 from os.path import abspath, dirname, join
-# third party
 import luigi
 import tweepy
 import genanki
@@ -24,10 +23,7 @@ SCREEN_NAME = twitter['screen_name']
 
 
 class GetTweets(luigi.Task):
-    """
-    Generates a local file containing chosen fields of Twitter
-    API response in JSON format
-    """
+    task_namespace = 'jlpt'
     date = luigi.DateParameter(default=datetime.date.today())
 
     auth = tweepy.OAuthHandler(consumer_key=API_KEY,
@@ -61,10 +57,7 @@ class GetTweets(luigi.Task):
 
 
 class ProcessTweets(luigi.Task):
-    """
-    Generates a local file to be written to a database for persistent
-    storage after cleaning up the tweets
-    """
+    task_namespace = 'jlpt'
     date = luigi.DateParameter(default=datetime.date.today())
 
     def requires(self):
@@ -86,13 +79,11 @@ class ProcessTweets(luigi.Task):
         )
         ques = question.strip()
 
-        # Check if options are available for the question
         index = ques.rfind('A')
         if index == -1:
             stem = re.sub(pattern=r'\s+', repl=' ', string=ques.strip())
             return {'stem': stem}
 
-        # Clean up options as key: value pairs
         options = ques[index:].strip()
         options = dict(pattern.findall(string=options))
         if len(options) < 4:
@@ -108,10 +99,7 @@ class ProcessTweets(luigi.Task):
         return item
 
     def run(self):
-        # An item bank to function as a repository of test items
         item_bank = list()
-        # `characters` and regex `pattern` to check
-        # the presence of in a tweet
         characters = '◇◆'
         pattern = re.compile(r'([^◇◆]+)', flags=re.IGNORECASE)
 
@@ -122,7 +110,6 @@ class ProcessTweets(luigi.Task):
                 if text and any(char in text for char in characters):
                     question, answer = pattern.findall(string=text)
                     key = answer.strip()
-                    # Clean up `question`
                     item = self._tidy(question=question)
                     options = item.get('options')
                     if options and options.get(key):
@@ -134,7 +121,6 @@ class ProcessTweets(luigi.Task):
                     item.update(tweet)
                     item_bank.append(item)
 
-        # Write `item_bank` to line delimited JSON
         with self.output().open('w') as outfile:
             for item in item_bank:
                 outfile.write(json.dumps(item, ensure_ascii=False))
@@ -142,6 +128,7 @@ class ProcessTweets(luigi.Task):
 
 
 class Deduplicate(luigi.Task):
+    task_namespace = 'jlpt'
     date = luigi.DateParameter(default=datetime.date.today())
 
     def requires(self):
@@ -179,7 +166,7 @@ class Deduplicate(luigi.Task):
 
 
 class SaveAsAnkiDeck(luigi.Task):
-    task_namespace = 'twitter'
+    task_namespace = 'jlpt'
     date = luigi.DateParameter(default=datetime.date.today())
 
     jlpt_deck = genanki.Deck(deck_id=randint(a=100, b=999), name=SCREEN_NAME)
@@ -246,4 +233,4 @@ class SaveAsAnkiDeck(luigi.Task):
 
 
 if __name__ == '__main__':
-    luigi.run(['twitter.SaveAsAnkiDeck', '--workers', '1', '--local-scheduler'])
+    luigi.run()
