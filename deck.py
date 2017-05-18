@@ -1,6 +1,7 @@
 import re
 import json
 import datetime
+from random import randint
 from itertools import groupby
 from operator import itemgetter
 from collections import OrderedDict
@@ -115,8 +116,8 @@ class ProcessTweets(luigi.Task):
         pattern = re.compile(r'([^◇◆]+)', flags=re.IGNORECASE)
 
         with self.input().open('r') as fobj:
-            for t in fobj.readlines():
-                tweet = json.loads(s=t)
+            for row in fobj.readlines():
+                tweet = json.loads(s=row)
                 text = tweet.get('text')
                 if text and any(char in text for char in characters):
                     question, answer = pattern.findall(string=text)
@@ -126,8 +127,7 @@ class ProcessTweets(luigi.Task):
                     options = item.get('options')
                     if options and options.get(key):
                         item.update(
-                            {'key': '{key_index}. {key}'
-                                .format(key_index=key, key=options.get(key))}
+                            {'key': '{key}'.format(key=options.get(key))}
                         )
                     else:
                         item.update({'key': key})
@@ -182,11 +182,10 @@ class SaveAsAnkiDeck(luigi.Task):
     task_namespace = 'twitter'
     date = luigi.DateParameter(default=datetime.date.today())
 
-    jlpt_deck = genanki.Deck(deck_id=1498953600, name='jlpt')
+    jlpt_deck = genanki.Deck(deck_id=randint(a=100, b=999), name=SCREEN_NAME)
     jlpt_model = genanki.Model(
         model_id=112,
         name='Japanese',
-        css='{.answer {text-align: center;}}',
         fields=[
             {'name': 'stem'},
             {'name': 'options'},
@@ -195,17 +194,13 @@ class SaveAsAnkiDeck(luigi.Task):
         templates=[
             {
                 'name': 'with_options',
-                'qfmt': '{{stem}}<br>{{options}}',
-                'afmt': '{{FrontSide}}'
-                        '<hr id="answer">'
-                        '<p><span class="answer">{{key}}</span></p>'
+                'qfmt': '{{stem}}{{options}}',
+                'afmt': '{{FrontSide}}<hr id="answer">{{key}}'
             },
             {
                 'name': 'without_options',
                 'qfmt': '{{stem}}',
-                'afmt': '{{FrontSide}}'
-                        '<hr id="answer">'
-                        '<p><span class="answer">{{key}}</span></p>'
+                'afmt': '{{FrontSide}}<hr id="answer">{{key}}'
             }
         ]
     )
@@ -226,9 +221,9 @@ class SaveAsAnkiDeck(luigi.Task):
                 item = json.loads(s=row)
                 options = item.get('options')
                 if options:
-                    template = '{{#options}}{{k}}. {{v}}<br>{{/options}}'
+                    template = '<ol type="A">{{#options}}<li>{{v}}</li>{{/options}}</ol>'
                     options = OrderedDict(sorted(options.items()))
-                    listcomp = [{'k': k, 'v': v} for k, v in options.items()]
+                    listcomp = [{'v': v} for k, v in options.items()]
                     options_rendered = pystache.render(
                         template=template,
                         context={'options': listcomp}
